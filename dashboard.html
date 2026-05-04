@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="300">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 600px;
+      height: 800px;
+      background: #fff;
+      color: #000;
+      font-family: Georgia, 'Times New Roman', serif;
+      overflow: hidden;
+    }
+
+    /* ── CLOCK ── */
+    #clock-section {
+      text-align: center;
+      padding: 18px 0 10px;
+      border-bottom: 3px solid #000;
+    }
+    #time {
+      font-size: 96px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      line-height: 1;
+    }
+    #date {
+      font-size: 20px;
+      margin-top: 6px;
+      letter-spacing: 1px;
+    }
+
+    /* ── WEATHER ── */
+    #weather-section {
+      padding: 10px 24px;
+      border-bottom: 3px solid #000;
+      display: -webkit-box;
+      display: flex;
+      -webkit-box-align: center;
+      align-items: center;
+      gap: 16px;
+    }
+    #temp {
+      font-size: 52px;
+      font-weight: bold;
+      min-width: 110px;
+    }
+    #weather-desc {
+      font-size: 22px;
+    }
+
+    /* ── DEPARTURES ── */
+    #dep-header {
+      padding: 6px 24px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 1px solid #000;
+      background: #000;
+      color: #fff;
+    }
+    .stop {
+      border-bottom: 2px solid #000;
+      padding: 6px 24px 8px;
+    }
+    .stop-name {
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      color: #444;
+    }
+    .departure {
+      display: -webkit-box;
+      display: flex;
+      -webkit-box-align: baseline;
+      align-items: baseline;
+      padding: 2px 0;
+    }
+    .line {
+      font-size: 22px;
+      font-weight: bold;
+      width: 56px;
+      flex-shrink: 0;
+    }
+    .dest {
+      font-size: 19px;
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .mins {
+      font-size: 20px;
+      font-weight: bold;
+      min-width: 80px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .mins-now {
+      font-style: italic;
+    }
+
+    /* ── FOOTER ── */
+    #footer {
+      position: absolute;
+      bottom: 4px;
+      right: 10px;
+      font-size: 11px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+
+<div id="clock-section">
+  <div id="time">--:--</div>
+  <div id="date">&nbsp;</div>
+</div>
+
+<div id="weather-section">
+  <div id="temp">--°C</div>
+  <div id="weather-desc">načítám počasí…</div>
+</div>
+
+<div id="dep-header">Odjezdy MHD</div>
+<div id="stops"><div style="padding:10px 24px;font-size:18px;">načítám odjezdy…</div></div>
+
+<div id="footer"></div>
+
+<script>
+// ── Helpers ──────────────────────────────────────────
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ── Clock ─────────────────────────────────────────────
+var DAYS   = ['Neděle','Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota'];
+var MONTHS = ['ledna','února','března','dubna','května','června',
+              'července','srpna','září','října','listopadu','prosince'];
+
+function updateClock() {
+  var now = new Date();
+  document.getElementById('time').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  document.getElementById('date').textContent =
+    DAYS[now.getDay()] + ' ' + now.getDate() + '. ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Weather ───────────────────────────────────────────
+var WX = {
+  0:'Jasno', 1:'Převážně jasno', 2:'Polojasno', 3:'Zataženo',
+  45:'Mlha', 48:'Mlha',
+  51:'Mrholení', 53:'Mrholení', 55:'Mrholení',
+  61:'Déšť', 63:'Déšť', 65:'Silný déšť',
+  71:'Sněžení', 73:'Sněžení', 75:'Silné sněžení',
+  80:'Přeháňky', 81:'Přeháňky', 82:'Silné přeháňky',
+  95:'Bouřka', 96:'Bouřka s krupobitím', 99:'Bouřka s krupobitím'
+};
+
+function fetchWeather() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET',
+    'https://api.open-meteo.com/v1/forecast' +
+    '?latitude=50.0850981&longitude=14.4444719' +
+    '&current=temperature_2m,weather_code&timezone=Europe/Prague', true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      try {
+        var d = JSON.parse(xhr.responseText);
+        var temp = Math.round(d.current.temperature_2m);
+        var code = d.current.weather_code;
+        document.getElementById('temp').textContent = temp + '\u00b0C';
+        document.getElementById('weather-desc').textContent = WX[code] || 'Proměnlivě';
+      } catch(e) {}
+    }
+  };
+  xhr.send();
+}
+
+// ── Departures ────────────────────────────────────────
+function fetchDepartures() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET',
+    'https://golemio.tryasp.net/watch/departures?lat=50.0850981&lon=14.4444719', true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        var html = '';
+        for (var i = 0; i < data.s.length; i++) {
+          var stop = data.s[i];
+          html += '<div class="stop"><div class="stop-name">' + stop.n + '</div>';
+          for (var j = 0; j < stop.d.length && j < 4; j++) {
+            var dep = stop.d[j];
+            var minsHtml = dep.m === 0
+              ? '<span class="mins mins-now">&lt;&lt; odjíždí</span>'
+              : '<span class="mins">' + dep.m + ' min</span>';
+            html += '<div class="departure">' +
+                    '<span class="line">' + dep.l + '</span>' +
+                    '<span class="dest">' + dep.h + '</span>' +
+                    minsHtml +
+                    '</div>';
+          }
+          html += '</div>';
+        }
+        document.getElementById('stops').innerHTML = html;
+        var now = new Date();
+        document.getElementById('footer').textContent =
+          'aktualizováno ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+      } catch(e) {}
+    }
+  };
+  xhr.send();
+}
+
+// ── Init & refresh ────────────────────────────────────
+fetchWeather();
+fetchDepartures();
+setInterval(fetchDepartures, 60000);   // odjezdy každou minutu
+setInterval(fetchWeather,   600000);   // počasí každých 10 minut
+</script>
+
+</body>
+</html>
